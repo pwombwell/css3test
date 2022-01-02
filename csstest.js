@@ -7,6 +7,9 @@ var ele = function (name) {
 	return document.getElementById(name);
 }
 
+// Send to Browserscope
+const testKey = 'agt1YS1wcm9maWxlcnINCxIEVGVzdBidzawNDA';
+
 Score.prototype = {
 	update: function (data) {
 		if (!data.total) { return; }
@@ -401,6 +404,87 @@ function passclass(info) {
 	return classes[index];
 }
 
+function resetOutput() {
+	mainScore = new Score();
+	_bTestResults = {};
+
+	// Output current score
+	ele('score').textContent = '';
+	ele('passedTests').textContent = '';
+	ele('totalTests').textContent = '';
+	ele('total').textContent = '';
+	ele('specsTested').textContent = '';
+	ele('all').textContent = '';
+
+	// Display time taken
+	ele('timeTaken').textContent = '';
+}
+
+function runTests(filter = '') {
+	let specs = [];
+	let timeBefore = +new Date;
+	let duration = 0;
+
+	let removedWords = / *(?:\([^)]*\)|:.*|\b(?:CSS|Module)\b)( *)/g;
+
+	for (let spec in Specs) {
+		// Filter list of specifications
+		if (filter === 'stable' && Specs[spec]?.status?.stability !== 'stable') {
+			continue;
+		} else if (Number(filter) > 0) {
+			if (Specs[spec]?.status?.['first-snapshot'] === undefined) {
+				continue;
+			}
+
+			const snapshot = Number(filter);
+			if (
+				Specs[spec].status['first-snapshot'] > snapshot ||
+				Specs[spec]?.status?.['last-snapshot'] < snapshot
+			) {
+				continue;
+			}
+		}
+
+		specs.push({
+			id: spec,
+			// Shorten the title by removing parentheticals,
+			// subheadings, CSS and Module words
+			title: Specs[spec].title.replace(removedWords, "$1").trim(),
+			tests: Specs[spec]
+		});
+	}
+
+	specs.sort(function (a, b) {
+		return a.title.localeCompare(b.title);
+	});
+
+	specs.forEach(spec => {
+		// Run tests
+		new Test(spec);
+
+		// Count test duration
+		duration += +new Date - timeBefore;
+		timeBefore = +new Date;
+
+		// Output current score
+		ele('score').textContent = mainScore + '';
+		ele('passedTests').textContent = ~~mainScore.passedTests;
+		ele('totalTests').textContent = mainScore.totalTests;
+		ele('total').textContent = mainScore.total;
+	});
+
+	// Display time taken
+	ele('timeTaken').textContent = +new Date - timeBefore + 'ms';
+
+	_bTestResults['Overall'] = mainScore.percent();
+
+	$.create({
+		tag: 'script',
+		src: '//www.browserscope.org/user/beacon/' + testKey,
+		inside: $('head')
+	});
+}
+
 Array.prototype.and = function (arr2, separator) {
 	separator = separator || ' ';
 
@@ -447,68 +531,6 @@ Array.prototype.times = function (min, max, separator) {
 };
 
 onload = function () {
-	var timeBefore = +new Date,
-		duration = 0,
-		specs = [];
-
-	var removedWords = / *(?:\([^)]*\)|:.*|\b(?:CSS|Module)\b)( *)/g;
-
-	for (var spec in Specs) {
-		specs.push({
-			id: spec,
-			// Shorten the title by removing parentheticals,
-			// subheadings, CSS and Module words
-			title: Specs[spec].title.replace(removedWords, "$1").trim(),
-			tests: Specs[spec]
-		});
-	}
-
-	specs.sort(function (a, b) {
-		return a.title.localeCompare(b.title);
-	});
-
-
-	(function () {
-		if (specs.length) {
-			// Get spec id
-			var spec = specs.shift();
-
-			// Run tests
-			var test = new Test(spec);
-
-			// Count test duration
-			duration += +new Date - timeBefore;
-			timeBefore = +new Date;
-
-			// Output current score
-			ele('score').textContent = mainScore + '';
-			ele('passedTests').textContent = ~~mainScore.passedTests;
-			ele('totalTests').textContent = mainScore.totalTests;
-			ele('total').textContent = mainScore.total;
-
-			// Schedule next test
-			setTimeout(arguments.callee, 50)
-		}
-		else {
-			// Done!
-
-			// Display time taken
-			ele('timeTaken').textContent = +new Date - timeBefore + 'ms';
-
-			// Send to Browserscope
-			var testKey = 'agt1YS1wcm9maWxlcnINCxIEVGVzdBidzawNDA';
-
-			_bTestResults['Overall'] = mainScore.percent();
-
-			$.create({
-				tag: 'script',
-				src: '//www.browserscope.org/user/beacon/' + testKey,
-				inside: $('head')
-			});
-		}
-	})();
-
-
-
-
+	ele('filter').value = localStorage.getItem('filter') || '';
+	runTests(localStorage.getItem('filter') || '');
 }
