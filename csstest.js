@@ -462,10 +462,6 @@ function runTests(filter = '') {
 		// Run tests
 		new Test(spec);
 
-		// Count test duration
-		duration += +new Date - timeBefore;
-		timeBefore = +new Date;
-
 		// Output current score
 		ele('score').textContent = mainScore + '';
 		ele('passedTests').textContent = ~~mainScore.passedTests;
